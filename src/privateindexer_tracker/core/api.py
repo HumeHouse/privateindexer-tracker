@@ -4,7 +4,7 @@ from urllib.parse import parse_qs
 
 import libtorrent as lt
 from fastapi import HTTPException, Query, Request, Form, APIRouter, Depends, Header
-from fastapi.responses import Response
+from fastapi.responses import Response, PlainTextResponse
 
 from privateindexer_tracker.core import mysql, utils
 from privateindexer_tracker.core.config import PEER_TIMEOUT, ANNOUNCE_INTERVAL, ANNOUNCE_JITTER_PERCENT
@@ -26,6 +26,14 @@ async def api_key_required(apikey_query: str | None = Query(None, alias="apikey"
         log.warning(f"[USER] Invalid API key sent: {apikey}")
         raise HTTPException(status_code=401, detail="Invalid API key")
     return user
+
+
+@router.get("/health")
+def get_health():
+    """
+    Endpoint to be used by Docker for checking the readiness of the API
+    """
+    return PlainTextResponse("OK")
 
 
 @router.get("/announce")

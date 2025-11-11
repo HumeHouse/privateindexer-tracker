@@ -4,13 +4,13 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Response
 
 from privateindexer_tracker.core import mysql, api, redis, utils
-from privateindexer_tracker.core.config import HIGH_LATECY_THRESHOLD
+from privateindexer_tracker.core.config import HIGH_LATECY_THRESHOLD, APP_VERSION
 from privateindexer_tracker.core.logger import log
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    log.info("[APP] Starting PrivateIndexer tracker")
+    log.info(f"[APP] Starting PrivateIndexer tracker v{APP_VERSION}")
 
     log.info("[APP] Connecting Redis")
 
@@ -30,7 +30,7 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None,
-              title=f"PrivateIndexer Tracker", version="1.0.0")
+              title=f"PrivateIndexer Tracker", version=APP_VERSION)
 
 app.include_router(api.router)
 
