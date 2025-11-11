@@ -1,0 +1,19 @@
+import os
+
+ANNOUNCE_INTERVAL = int(os.getenv("ANNOUNCE_INTERVAL", 900))
+ANNOUNCE_JITTER_PERCENT = int(os.getenv("ANNOUNCE_JITTER_PERCENT", 15))
+
+PEER_TIMEOUT = int(os.getenv("PEER_TIMEOUT", 1800))
+
+HIGH_LATECY_THRESHOLD = int(os.getenv("HIGH_LATECY_THRESHOLD", 250))
+
+REDIS_HOST = os.getenv("REDIS_HOST")
+
+MYSQL_HOST = os.getenv("MYSQL_HOST")
+MYSQL_PORT = int(os.getenv("MYSQL_PORT", 3306))
+MYSQL_USER = os.getenv("MYSQL_USER")
+MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
+MYSQL_DB = os.getenv("MYSQL_DB", "privateindexer")
+
+MYSQL_MAX_RETY = 5
+MYSQL_RETRY_BACKOFF = 0.2
