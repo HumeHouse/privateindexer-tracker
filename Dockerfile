@@ -17,7 +17,7 @@ EXPOSE 80
 
 HEALTHCHECK --start-period=30s --interval=30s --timeout=5s --retries=3 \
     CMD python -c "import urllib.request, sys; \
-    sys.exit(0) if urllib.request.urlopen('http://localhost:80/api/v2/health').getcode() == 200 else sys.exit(1)"
+    sys.exit(0) if urllib.request.urlopen('http://localhost:80/health').getcode() == 200 else sys.exit(1)"
 
 WORKDIR /app/src
 
