@@ -88,11 +88,12 @@ async def announce(user: User = Depends(api_key_required), request: Request = No
 
     await mysql.background_updates.put(("UPDATE torrents SET last_seen=NOW() WHERE id=%s", (torrent_id,)))
 
+    peers_bin = bytearray()
+
     if event == "stopped":
         await mysql.background_updates.put(("DELETE FROM peers WHERE torrent_id=%s AND peer_id=%s", (torrent_id, peer_id_hex)))
 
         seeders = leechers = 0
-        peers_bin = bytearray()
 
         log.debug(f"[ANNOUNCE] User '{user_label}' stopped announcing '{torrent['name']}' from IP '{announce_ip}'")
 
@@ -119,7 +120,6 @@ async def announce(user: User = Depends(api_key_required), request: Request = No
         seeders = sum(1 for r in peers if r["left_bytes"] == 0)
         leechers = sum(1 for r in peers if r["left_bytes"] > 0)
 
-        peers_bin = bytearray()
         for peer in peers:
             try:
                 peers_bin.extend(socket.inet_aton(peer["ip"]))
