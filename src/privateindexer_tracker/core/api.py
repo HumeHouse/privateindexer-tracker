@@ -60,7 +60,7 @@ async def announce(user: User = Depends(api_key_required), request: Request = No
         log.warning(f"[ANNOUNCE] User '{user_label}' announce request has malformed peer_id ({len(raw_peer_id_bytes)})")
         raise HTTPException(status_code=400, detail="Malformed peer_id")
 
-    info_hash_hex = raw_info_hash_bytes.hex()
+    info_hash_hex = raw_info_hash_bytes.hex().lower()
     peer_id_hex = raw_peer_id_bytes.hex()
     qs = parse_qs(raw_qs.decode("latin-1"), keep_blank_values=True)
 
@@ -71,7 +71,7 @@ async def announce(user: User = Depends(api_key_required), request: Request = No
     port = int(qs.get("port", ["6881"])[0])
     announce_ip = qs.get("ip", [utils.get_client_ip(request)])[0]
 
-    torrent = await mysql.fetch_one("SELECT id, name FROM torrents WHERE hash_v1=%s OR hash_v2 LIKE %s LIMIT 1", (info_hash_hex.lower(), f"{info_hash_hex.lower()}%"))
+    torrent = await mysql.fetch_one("SELECT id, name FROM torrents WHERE hash_v1=%s OR hash_v2 LIKE %s LIMIT 1", (info_hash_hex, f"{info_hash_hex}%"))
     if not torrent:
         log.warning(f"[ANNOUNCE] User '{user_label}' announced an unknown torrent with hash: {info_hash_hex}")
         raise HTTPException(status_code=404, detail="Torrent not found")
