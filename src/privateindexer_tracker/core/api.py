@@ -117,8 +117,8 @@ async def announce(user: User = Depends(api_key_required), request: Request = No
                                         AND last_seen > NOW() - INTERVAL %s SECOND
                                       """, (torrent_id, PEER_TIMEOUT))
 
-        seeders = sum(1 for r in peers if r["left_bytes"] == 0)
-        leechers = sum(1 for r in peers if r["left_bytes"] > 0)
+        seeders = sum(peer["left_bytes"] == 0 for peer in peers)
+        leechers = len(peers) - seeders
 
         for peer in peers:
             try:
