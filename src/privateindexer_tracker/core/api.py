@@ -60,7 +60,7 @@ async def announce(user: User = Depends(api_key_required), request: Request = No
         log.warning(f"[ANNOUNCE] User '{user_label}' announce request has malformed peer_id ({len(raw_peer_id_bytes)})")
         raise HTTPException(status_code=400, detail="Malformed peer_id")
 
-    info_hash_hex = raw_info_hash_bytes.hex()
+    info_hash_hex = raw_info_hash_bytes.hex().lower()
     peer_id_hex = raw_peer_id_bytes.hex()
     qs = parse_qs(raw_qs.decode("latin-1"), keep_blank_values=True)
 
@@ -71,7 +71,7 @@ async def announce(user: User = Depends(api_key_required), request: Request = No
     port = int(qs.get("port", ["6881"])[0])
     announce_ip = qs.get("ip", [utils.get_client_ip(request)])[0]
 
-    torrent = await mysql.fetch_one("SELECT id, name FROM torrents WHERE hash_v1=%s OR hash_v2 LIKE %s LIMIT 1", (info_hash_hex.lower(), f"{info_hash_hex.lower()}%"))
+    torrent = await mysql.fetch_one("SELECT id, name FROM torrents WHERE hash_v1=%s OR hash_v2 LIKE %s LIMIT 1", (info_hash_hex, f"{info_hash_hex}%"))
     if not torrent:
         log.warning(f"[ANNOUNCE] User '{user_label}' announced an unknown torrent with hash: {info_hash_hex}")
         raise HTTPException(status_code=404, detail="Torrent not found")
@@ -88,11 +88,12 @@ async def announce(user: User = Depends(api_key_required), request: Request = No
 
     await mysql.background_updates.put(("UPDATE torrents SET last_seen=NOW() WHERE id=%s", (torrent_id,)))
 
+    peers_bin = bytearray()
+
     if event == "stopped":
         await mysql.background_updates.put(("DELETE FROM peers WHERE torrent_id=%s AND peer_id=%s", (torrent_id, peer_id_hex)))
 
         seeders = leechers = 0
-        peers_bin = bytearray()
 
         log.debug(f"[ANNOUNCE] User '{user_label}' stopped announcing '{torrent['name']}' from IP '{announce_ip}'")
 
@@ -116,10 +117,9 @@ async def announce(user: User = Depends(api_key_required), request: Request = No
                                         AND last_seen > NOW() - INTERVAL %s SECOND
                                       """, (torrent_id, PEER_TIMEOUT))
 
-        seeders = sum(1 for r in peers if r["left_bytes"] == 0)
-        leechers = sum(1 for r in peers if r["left_bytes"] > 0)
+        seeders = sum(peer["left_bytes"] == 0 for peer in peers)
+        leechers = len(peers) - seeders
 
-        peers_bin = bytearray()
         for peer in peers:
             try:
                 peers_bin.extend(socket.inet_aton(peer["ip"]))
