@@ -84,7 +84,7 @@ async def announce(user: User = Depends(api_key_required), request: Request = No
     delta_down = max(0, downloaded - (prev_peer["last_downloaded"] if prev_peer else 0))
 
     await mysql.background_updates.put(("UPDATE users SET uploaded = uploaded + %s, downloaded = downloaded + %s, last_ip = %s, last_seen=NOW() WHERE id = %s",
-                                        (delta_up, delta_down, announce_ip, user.user_id)))
+                                        (delta_up, delta_down, f"{announce_ip}:{port}", user.user_id)))
 
     await mysql.background_updates.put(("UPDATE torrents SET last_seen=NOW() WHERE id=%s", (torrent_id,)))
 
