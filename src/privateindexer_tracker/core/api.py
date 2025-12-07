@@ -2,7 +2,7 @@ import random
 import socket
 from urllib.parse import parse_qs
 
-import libtorrent as lt
+import bencode2
 from fastapi import HTTPException, Query, Request, Form, APIRouter, Depends, Header
 from fastapi.responses import Response, PlainTextResponse
 
@@ -110,12 +110,22 @@ async def announce(user: User = Depends(api_key_required), request: Request = No
                                             """, (torrent_id, peer_id_hex, announce_ip, port, left, uploaded, downloaded, user.user_id, announce_ip, port, left, uploaded,
                                                   downloaded)))
 
-        peers = await mysql.fetch_all("""
+        db_peers = await mysql.fetch_all("""
                                       SELECT ip, port, left_bytes
                                       FROM peers
                                       WHERE torrent_id = %s
                                         AND last_seen > NOW() - INTERVAL %s SECOND
                                       """, (torrent_id, PEER_TIMEOUT))
+
+        peers = list(db_peers)
+
+        # check if current peer not in peers list
+        if not any(p["ip"] == announce_ip and p["port"] == port for p in peers):
+            peers.append({
+                "ip": announce_ip,
+                "port": port,
+                "left_bytes": left,
+            })
 
         seeders = sum(peer["left_bytes"] == 0 for peer in peers)
         leechers = len(peers) - seeders
@@ -135,4 +145,4 @@ async def announce(user: User = Depends(api_key_required), request: Request = No
     response_dict = {b"complete": seeders, b"incomplete": leechers, b"interval": announce_interval, b"peers": peers_bin, }
 
     sanitized = utils.sanitize_bencode(response_dict)
-    return Response(content=lt.bencode(sanitized), media_type="application/x-bittorrent")
+    return Response(content=bencode2.bencode(sanitized), media_type="application/x-bittorrent")
