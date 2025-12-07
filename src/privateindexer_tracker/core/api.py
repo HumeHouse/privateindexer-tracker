@@ -2,6 +2,7 @@ import random
 import socket
 from urllib.parse import parse_qs
 
+import bencode2
 import libtorrent as lt
 from fastapi import HTTPException, Query, Request, Form, APIRouter, Depends, Header
 from fastapi.responses import Response, PlainTextResponse
@@ -135,4 +136,4 @@ async def announce(user: User = Depends(api_key_required), request: Request = No
     response_dict = {b"complete": seeders, b"incomplete": leechers, b"interval": announce_interval, b"peers": peers_bin, }
 
     sanitized = utils.sanitize_bencode(response_dict)
-    return Response(content=lt.bencode(sanitized), media_type="application/x-bittorrent")
+    return Response(content=bencode2.bencode(sanitized), media_type="application/x-bittorrent")
