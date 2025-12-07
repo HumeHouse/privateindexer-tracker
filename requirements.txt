@@ -1,7 +1,8 @@
-libtorrent~=2.0.11
-fastapi~=0.123.0
+fastapi~=0.124.0
 uvicorn[standard]~=0.38.0
 python-multipart~=0.0.20
 aiomysql~=0.3.2
 redis[hiredis]~=7.1.0
 pydantic~=2.12.5
+bencode2~=0.3.27
+cryptography~=46.0.3
