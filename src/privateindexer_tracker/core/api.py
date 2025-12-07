@@ -3,7 +3,6 @@ import socket
 from urllib.parse import parse_qs
 
 import bencode2
-import libtorrent as lt
 from fastapi import HTTPException, Query, Request, Form, APIRouter, Depends, Header
 from fastapi.responses import Response, PlainTextResponse
 
