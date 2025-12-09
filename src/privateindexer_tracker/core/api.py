@@ -111,26 +111,29 @@ async def announce(user: User = Depends(api_key_required), request: Request = No
                                                   downloaded)))
 
         db_peers = await mysql.fetch_all("""
-                                      SELECT ip, port, left_bytes
-                                      FROM peers
-                                      WHERE torrent_id = %s
-                                        AND last_seen > NOW() - INTERVAL %s SECOND
-                                      """, (torrent_id, PEER_TIMEOUT))
+                                         SELECT peer_id, ip, port, left_bytes
+                                         FROM peers
+                                         WHERE torrent_id = %s
+                                           AND last_seen > NOW() - INTERVAL %s SECOND
+                                         """, (torrent_id, PEER_TIMEOUT))
 
         peers = list(db_peers)
-
-        # check if current peer not in peers list
-        if not any(p["ip"] == announce_ip and p["port"] == port for p in peers):
-            peers.append({
-                "ip": announce_ip,
-                "port": port,
-                "left_bytes": left,
-            })
 
         seeders = sum(peer["left_bytes"] == 0 for peer in peers)
         leechers = len(peers) - seeders
 
+        # check if current peer not in peers list
+        if not any(p["peer_id"] == peer_id_hex for p in peers):
+            # increment seeders/leechers if peer not in peers pulled from database
+            if left == 0:
+                seeders += 1
+            else:
+                leechers += 1
+
         for peer in peers:
+            # do not add the announcer to the peer list in the response
+            if peer["peer_id"] == peer_id_hex:
+                continue
             try:
                 peers_bin.extend(socket.inet_aton(peer["ip"]))
                 peers_bin.extend(peer["port"].to_bytes(2, "big"))
@@ -142,7 +145,7 @@ async def announce(user: User = Depends(api_key_required), request: Request = No
     jitter = random.randint(-ANNOUNCE_INTERVAL // ANNOUNCE_JITTER_PERCENT, ANNOUNCE_INTERVAL // ANNOUNCE_JITTER_PERCENT)
     announce_interval = ANNOUNCE_INTERVAL + jitter
 
-    response_dict = {b"complete": seeders, b"incomplete": leechers, b"interval": announce_interval, b"peers": peers_bin, }
+    response_dict = {b"complete": seeders, b"incomplete": leechers, b"interval": announce_interval, b"peers": bytes(peers_bin), }
 
     sanitized = utils.sanitize_bencode(response_dict)
     return Response(content=bencode2.bencode(sanitized), media_type="application/x-bittorrent")
