@@ -71,7 +71,7 @@ async def announce(user: User = Depends(api_key_required), request: Request = No
     port = int(qs.get("port", ["6881"])[0])
     announce_ip = qs.get("ip", [utils.get_client_ip(request)])[0]
 
-    torrent = await mysql.fetch_one("SELECT id, name FROM torrents WHERE hash_v1=%s OR hash_v2 LIKE %s LIMIT 1", (info_hash_hex, f"{info_hash_hex}%"))
+    torrent = await mysql.fetch_one("SELECT id, name FROM torrents WHERE hash_v1 = %s OR hash_v2_trunc = %s LIMIT 1", (info_hash_hex, info_hash_hex,))
     if not torrent:
         log.warning(f"[ANNOUNCE] User '{user_label}' announced an unknown torrent with hash: {info_hash_hex}")
         raise HTTPException(status_code=404, detail="Torrent not found")
