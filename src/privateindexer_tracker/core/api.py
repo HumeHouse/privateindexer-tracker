@@ -53,7 +53,7 @@ async def announce(user: User = Depends(api_key_required), request: Request = No
         log.warning(f"[ANNOUNCE] User '{user_label}' announce request is missing info_hash or peer_id")
         raise HTTPException(status_code=400, detail="Missing info_hash or peer_id")
 
-    if len(raw_info_hash_bytes) not in (20, 32):
+    if len(raw_info_hash_bytes) != 20:
         log.warning(f"[ANNOUNCE] User '{user_label}' announce request has malformed info_hash ({len(raw_info_hash_bytes)})")
         raise HTTPException(status_code=400, detail="Malformed info_hash")
     if len(raw_peer_id_bytes) != 20:
