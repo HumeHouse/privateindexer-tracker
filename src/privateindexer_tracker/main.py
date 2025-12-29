@@ -14,7 +14,7 @@ async def lifespan(_: FastAPI):
 
     log.info("[APP] Connecting Redis")
 
-    redis.connect_database()
+    await redis.get_connection()
 
     log.info("[APP] Connecting MySQL")
 
@@ -28,6 +28,8 @@ async def lifespan(_: FastAPI):
 
     await mysql.disconnect_database()
 
+    await redis.close_connection()
+
 
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None,
               title=f"PrivateIndexer Tracker", version=APP_VERSION)
@@ -37,15 +39,16 @@ app.include_router(api.router)
 
 @app.middleware("http")
 async def track_stats(request: Request, call_next):
-    redis_connection = redis.get_connection()
     client_ip = utils.get_client_ip(request)
 
+    redis_connection = redis.get_connection()
     pipe = redis_connection.pipeline()
-    _ = pipe.incr("stats:requests")
-    _ = pipe.sadd("stats:unique_ips", client_ip)
+
+    await pipe.incr("stats:requests")
+    await pipe.sadd("stats:unique_ips", client_ip)
 
     if request.headers.get("content-length"):
-        _ = pipe.incrby("stats:bytes_received", int(request.headers["content-length"]))
+        await pipe.incrby("stats:bytes_received", int(request.headers["content-length"]))
 
     start_time = time.perf_counter()
     response: Response = await call_next(request)
@@ -57,10 +60,10 @@ async def track_stats(request: Request, call_next):
         log.warning(f"[APP] High response time ({route_path}): {duration} ms")
 
     if response.headers.get("content-length"):
-        _ = pipe.incrby("stats:bytes_sent", int(response.headers["content-length"]))
+        await pipe.incrby("stats:bytes_sent", int(response.headers["content-length"]))
 
-    _ = pipe.rpush("stats:request_times", duration)
-    _ = pipe.ltrim("stats:request_times", -10000, -1)
-    pipe.execute()
+    await pipe.rpush("stats:request_times", duration)
+    await pipe.ltrim("stats:request_times", -10000, -1)
+    await pipe.execute()
 
     return response
