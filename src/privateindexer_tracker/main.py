@@ -14,7 +14,7 @@ async def lifespan(_: FastAPI):
 
     log.info("[APP] Connecting Redis")
 
-    redis.connect_database()
+    await redis.get_connection()
 
     log.info("[APP] Connecting MySQL")
 
@@ -28,6 +28,8 @@ async def lifespan(_: FastAPI):
 
     await mysql.disconnect_database()
 
+    await redis.close_connection()
+
 
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None,
               title=f"PrivateIndexer Tracker", version=APP_VERSION)
@@ -37,30 +39,39 @@ app.include_router(api.router)
 
 @app.middleware("http")
 async def track_stats(request: Request, call_next):
-    redis_connection = redis.get_connection()
     client_ip = utils.get_client_ip(request)
 
+    # start a redis transaction
+    redis_connection = redis.get_connection()
     pipe = redis_connection.pipeline()
-    _ = pipe.incr("stats:requests")
-    _ = pipe.sadd("stats:unique_ips", client_ip)
 
+    # append client IP to known IP list and increment request counter
+    await pipe.incr("stats:requests")
+    await pipe.sadd("stats:unique_ips", client_ip)
+
+    # add the requester-side content length to the counter
     if request.headers.get("content-length"):
-        _ = pipe.incrby("stats:bytes_received", int(request.headers["content-length"]))
+        await pipe.incrby("stats:bytes_received", int(request.headers["content-length"]))
 
+    # time the endpoint execution
     start_time = time.perf_counter()
     response: Response = await call_next(request)
     duration = (time.perf_counter() - start_time) * 1000
+
+    # check the endpoint execution time for high latency
     if duration > HIGH_LATECY_THRESHOLD:
         endpoint = request.scope.get("path")
         route = request.scope.get("route")
         route_path = getattr(route, "path", endpoint)
         log.warning(f"[APP] High response time ({route_path}): {duration} ms")
 
+    # add the server-side content length to the counter
     if response.headers.get("content-length"):
-        _ = pipe.incrby("stats:bytes_sent", int(response.headers["content-length"]))
+        await pipe.incrby("stats:bytes_sent", int(response.headers["content-length"]))
 
-    _ = pipe.rpush("stats:request_times", duration)
-    _ = pipe.ltrim("stats:request_times", -10000, -1)
-    pipe.execute()
+    # insert request duration and normalize values
+    await pipe.rpush("stats:request_times", duration)
+    await pipe.ltrim("stats:request_times", -10000, -1)
+    await pipe.execute()
 
     return response

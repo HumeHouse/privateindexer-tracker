@@ -7,6 +7,9 @@ from privateindexer_tracker.core import mysql
 
 
 class User:
+    """
+    Helper class to store user information
+    """
 
     def __init__(self, user_id: int, user_label: str, apikey: str, downloaded: int, uploaded: int):
         self.user_id: int = user_id
@@ -17,6 +20,9 @@ class User:
 
 
 async def get_user_by_key(apikey: str) -> User | None:
+    """
+    Validate API key sent by client and fetch user data from database
+    """
     if not apikey:
         return None
 
@@ -28,6 +34,9 @@ async def get_user_by_key(apikey: str) -> User | None:
 
 
 def extract_bt_param(raw_qs: bytes, key: str) -> bytes:
+    """
+    Helper function to pull Bittorrent query parameters from bytes
+    """
     prefix = key.encode("ascii") + b"="
     start = raw_qs.find(prefix)
     if start == -1:
@@ -41,6 +50,9 @@ def extract_bt_param(raw_qs: bytes, key: str) -> bytes:
 
 
 def sanitize_bencode(obj):
+    """
+    Helper function to clean items within other bencoded items
+    """
     if isinstance(obj, Decimal):
         return int(obj)
     elif isinstance(obj, dict):
@@ -53,6 +65,9 @@ def sanitize_bencode(obj):
 
 
 def get_client_ip(request: Request) -> str:
+    """
+    Helper to extract the IP address from a request
+    """
     x_forwarded_for = request.headers.get("x-forwarded-for")
     if x_forwarded_for:
         return x_forwarded_for.split(",")[0].strip()
