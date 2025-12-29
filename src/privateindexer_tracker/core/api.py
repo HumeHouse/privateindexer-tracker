@@ -1,12 +1,13 @@
 import random
 import socket
+import time
 from urllib.parse import parse_qs
 
 import bencode2
 from fastapi import HTTPException, Query, Request, Form, APIRouter, Depends, Header
 from fastapi.responses import Response, PlainTextResponse
 
-from privateindexer_tracker.core import mysql, utils
+from privateindexer_tracker.core import mysql, utils, redis
 from privateindexer_tracker.core.config import PEER_TIMEOUT, ANNOUNCE_INTERVAL, ANNOUNCE_JITTER_PERCENT
 from privateindexer_tracker.core.logger import log
 from privateindexer_tracker.core.utils import User
@@ -78,65 +79,67 @@ async def announce(user: User = Depends(api_key_required), request: Request = No
 
     torrent_id = torrent["id"]
 
-    prev_peer = await mysql.fetch_one("SELECT last_uploaded, last_downloaded FROM peers WHERE torrent_id=%s AND peer_id=%s", (torrent_id, peer_id_hex))
+    torrent_peers_key = f"peers:{torrent_id}"
+    peer_data_key = f"peer:{torrent_id}:{peer_id_hex}"
 
-    delta_up = max(0, uploaded - (prev_peer["last_uploaded"] if prev_peer else 0))
-    delta_down = max(0, downloaded - (prev_peer["last_downloaded"] if prev_peer else 0))
+    redis_connection = redis.get_connection()
+    pipe = redis_connection.pipeline()
+
+    prev_peer = await redis_connection.hgetall(peer_data_key)
+    delta_up = max(0, uploaded - int(prev_peer.get("uploaded", 0)) if prev_peer else 0)
+    delta_down = max(0, downloaded - int(prev_peer.get("downloaded", 0)) if prev_peer else 0)
 
     await mysql.background_updates.put(("UPDATE users SET uploaded = uploaded + %s, downloaded = downloaded + %s, last_ip = %s, last_seen=NOW() WHERE id = %s",
                                         (delta_up, delta_down, f"{announce_ip}:{port}", user.user_id)))
 
-    await mysql.background_updates.put(("UPDATE torrents SET last_seen=NOW() WHERE id=%s", (torrent_id,)))
-
     peers_bin = bytearray()
 
     if event == "stopped":
-        await mysql.background_updates.put(("DELETE FROM peers WHERE torrent_id=%s AND peer_id=%s", (torrent_id, peer_id_hex)))
+        await pipe.zrem(torrent_peers_key, peer_id_hex)
+        await pipe.delete(peer_data_key)
+        await pipe.execute()
 
         seeders = leechers = 0
 
         log.debug(f"[ANNOUNCE] User '{user_label}' stopped announcing '{torrent['name']}' from IP '{announce_ip}'")
 
     else:
-        await mysql.background_updates.put(("""
-                                            INSERT INTO peers (torrent_id, peer_id, ip, port, left_bytes, last_uploaded, last_downloaded, last_seen, user_id)
-                                            VALUES (%s, %s, %s, %s, %s, %s, %s, NOW(), %s)
-                                            ON DUPLICATE KEY UPDATE ip=%s,
-                                                                    port=%s,
-                                                                    left_bytes=%s,
-                                                                    last_uploaded=%s,
-                                                                    last_downloaded=%s,
-                                                                    last_seen=NOW()
-                                            """, (torrent_id, peer_id_hex, announce_ip, port, left, uploaded, downloaded, user.user_id, announce_ip, port, left, uploaded,
-                                                  downloaded)))
+        await mysql.background_updates.put(("UPDATE torrents SET last_seen=NOW() WHERE id=%s", (torrent_id,)))
 
-        db_peers = await mysql.fetch_all("""
-                                         SELECT peer_id, ip, port, left_bytes
-                                         FROM peers
-                                         WHERE torrent_id = %s
-                                           AND last_seen > NOW() - INTERVAL %s SECOND
-                                         """, (torrent_id, PEER_TIMEOUT))
+        now = int(time.time())
+        await pipe.zadd(torrent_peers_key, {peer_id_hex: now})
+        await pipe.hset(peer_data_key, mapping={
+            "ip": announce_ip,
+            "port": port,
+            "left": left,
+            "uploaded": uploaded,
+            "downloaded": downloaded,
+            "user_id": user.user_id,
+        })
+        await pipe.expire(peer_data_key, PEER_TIMEOUT)
+        await pipe.execute()
 
-        peers = list(db_peers)
+        # get peers
+        cutoff = now - PEER_TIMEOUT
+        peer_ids = await redis_connection.zrangebyscore(torrent_peers_key, min=cutoff, max=now)
+        seeders = leechers = 0
 
-        seeders = sum(peer["left_bytes"] == 0 for peer in peers)
-        leechers = len(peers) - seeders
+        for peer_id in peer_ids:
+            peer_data = await redis_connection.hgetall(f"peer:{torrent_id}:{peer_id}")
+            if not peer_data:
+                continue
 
-        # check if current peer not in peers list
-        if not any(p["peer_id"] == peer_id_hex for p in peers):
-            # increment seeders/leechers if peer not in peers pulled from database
-            if left == 0:
+            if int(peer_data.get("left", 1)) == 0:
                 seeders += 1
             else:
                 leechers += 1
 
-        for peer in peers:
-            # do not add the announcer to the peer list in the response
-            if peer["peer_id"] == peer_id_hex:
+            if peer_id == peer_id_hex:
                 continue
+
             try:
-                peers_bin.extend(socket.inet_aton(peer["ip"]))
-                peers_bin.extend(peer["port"].to_bytes(2, "big"))
+                peers_bin.extend(socket.inet_aton(peer_data["ip"]))
+                peers_bin.extend(int(peer_data["port"]).to_bytes(2, "big"))
             except OSError:
                 continue
 
