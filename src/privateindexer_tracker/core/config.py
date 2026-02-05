@@ -1,6 +1,6 @@
 import os
 
-APP_VERSION = "1.2.1"
+APP_VERSION = "1.3.0"
 
 ANNOUNCE_INTERVAL = int(os.getenv("ANNOUNCE_INTERVAL", 900))
 ANNOUNCE_JITTER_PERCENT = int(os.getenv("ANNOUNCE_JITTER_PERCENT", 15))
@@ -13,8 +13,8 @@ REDIS_HOST = os.getenv("REDIS_HOST")
 
 MYSQL_HOST = os.getenv("MYSQL_HOST")
 MYSQL_PORT = int(os.getenv("MYSQL_PORT", 3306))
-MYSQL_USER = os.getenv("MYSQL_USER")
-MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
+MYSQL_USER = os.getenv("MYSQL_USER", "privateindexer")
+MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "privateindexer")
 MYSQL_DB = os.getenv("MYSQL_DB", "privateindexer")
 
 MYSQL_MAX_RETY = 5

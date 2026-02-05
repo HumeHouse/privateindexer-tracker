@@ -20,7 +20,7 @@ async def lifespan(_: FastAPI):
 
     await mysql.connect_database()
 
-    log.info("[APP] API server started on 0.0.0.0:80")
+    log.info("[APP] API server started on 0.0.0.0:8082")
 
     yield
 
