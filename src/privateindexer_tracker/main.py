@@ -58,12 +58,18 @@ async def track_stats(request: Request, call_next):
     response: Response = await call_next(request)
     duration = (time.perf_counter() - start_time) * 1000
 
+    # parse the request parts and the query parameters
+    request_method = request.scope.get("method")
+    request_string = request.scope.get("path")
+    query_string = request.scope.get("query_string")
+    if query_string:
+        request_string = f"{request_string}?{query_string.decode()}"
+
     # check the endpoint execution time for high latency
     if duration > HIGH_LATECY_THRESHOLD:
-        endpoint = request.scope.get("path")
-        route = request.scope.get("route")
-        route_path = getattr(route, "path", endpoint)
-        log.warning(f"[APP] High response time ({route_path}): {duration} ms")
+        log.warning(f"[APP] High response time ({duration} ms) - [{request_method}] {request_string}")
+    else:
+        log.debug(f"[APP] Request ({duration} ms) - [{request_method}] {request_string}")
 
     # add the server-side content length to the counter
     if response.headers.get("content-length"):
