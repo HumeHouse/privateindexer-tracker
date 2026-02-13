@@ -27,16 +27,16 @@ def validate_environment():
     """
     Check environment variables for validity and exit on errors
     """
-    log.info("[APP] Validating environment")
+    log.info("[CONFIG] Validating environment")
 
     # ensure Redis server host is set
     if not REDIS_HOST:
-        log.critical(f"[APP] No Redis server host set")
+        log.critical(f"[CONFIG] No Redis server host set")
         exit(1)
 
     # ensure MySQL host is set
     if not MYSQL_HOST:
-        log.critical(f"[APP] No MySQL server host set")
+        log.critical(f"[CONFIG] No MySQL server host set")
         exit(1)
 
-    log.info("[APP] Environment is valid")
+    log.info("[CONFIG] Environment is valid")
