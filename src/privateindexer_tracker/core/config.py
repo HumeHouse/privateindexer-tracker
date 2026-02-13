@@ -1,6 +1,8 @@
 import os
 
 APP_VERSION = "1.3.1"
+from privateindexer_tracker.core.logger import log
+
 
 ANNOUNCE_INTERVAL = int(os.getenv("ANNOUNCE_INTERVAL", 900))
 ANNOUNCE_JITTER_PERCENT = int(os.getenv("ANNOUNCE_JITTER_PERCENT", 15))
@@ -19,3 +21,22 @@ MYSQL_DB = os.getenv("MYSQL_DB", "privateindexer")
 
 MYSQL_MAX_RETY = 5
 MYSQL_RETRY_BACKOFF = 0.2
+
+
+def validate_environment():
+    """
+    Check environment variables for validity and exit on errors
+    """
+    log.info("[APP] Validating environment")
+
+    # ensure Redis server host is set
+    if not REDIS_HOST:
+        log.critical(f"[APP] No Redis server host set")
+        exit(1)
+
+    # ensure MySQL host is set
+    if not MYSQL_HOST:
+        log.critical(f"[APP] No MySQL server host set")
+        exit(1)
+
+    log.info("[APP] Environment is valid")
