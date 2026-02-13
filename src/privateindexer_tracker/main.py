@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, Response
 
-from privateindexer_tracker.core import mysql, api, redis, utils
+from privateindexer_tracker.core import mysql, api, redis, utils, config
 from privateindexer_tracker.core.config import HIGH_LATECY_THRESHOLD, APP_VERSION
 from privateindexer_tracker.core.logger import log
 
@@ -12,13 +12,21 @@ from privateindexer_tracker.core.logger import log
 async def lifespan(_: FastAPI):
     log.info(f"[APP] Starting PrivateIndexer tracker v{APP_VERSION}")
 
-    log.info("[APP] Connecting Redis")
+    # test Redis connection
+    try:
+        await redis.get_connection()
+        log.info("[APP] Connected to Redis")
+    except Exception as e:
+        log.error(f"[APP] Exception while connecting Redis: {e}")
+        exit(1)
 
-    await redis.get_connection()
-
-    log.info("[APP] Connecting MySQL")
-
-    await mysql.connect_database()
+    # test MySQL connection
+    try:
+        await mysql.connect_database()
+        log.info("[APP] Connected to MySQL")
+    except Exception as e:
+        log.error(f"[APP] Exception while connecting MySQL: {e}")
+        exit(1)
 
     log.info("[APP] API server started on 0.0.0.0:8082")
 
@@ -30,6 +38,8 @@ async def lifespan(_: FastAPI):
 
     await redis.close_connection()
 
+# validate Python environment
+config.validate_environment()
 
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None,
               title=f"PrivateIndexer Tracker", version=APP_VERSION)
