@@ -27,7 +27,7 @@ async def api_key_required(apikey_query: str | None = Query(None, alias="apikey"
 
     user = await utils.get_user_by_key(apikey)
     if not user:
-        log.warning(f"[USER] Invalid API key sent: {apikey}")
+        log.debug(f"[USER] Invalid API key used")
         raise HTTPException(status_code=401, detail="Invalid API key")
     return user
 
