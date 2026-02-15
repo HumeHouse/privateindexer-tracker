@@ -42,7 +42,7 @@ async def background_worker():
         try:
             await execute(query, params)
         except Exception as e:
-            log.error(f"Background query failed: {e}")
+            logger.channel("mysql").exception(f"Background query failed: {e}")
         finally:
             background_updates.task_done()
 
