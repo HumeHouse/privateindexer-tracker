@@ -17,7 +17,7 @@ async def lifespan(_: FastAPI):
         await redis.get_connection()
         logger.channel("app").info("Connected to Redis")
     except Exception as e:
-        logger.channel("app").error(f"Exception while connecting Redis: {e}")
+        logger.channel("app").exception(f"Exception while connecting Redis: {e}")
         exit(1)
 
     # test MySQL connection
@@ -25,7 +25,7 @@ async def lifespan(_: FastAPI):
         await mysql.connect_database()
         logger.channel("app").info("Connected to MySQL")
     except Exception as e:
-        logger.channel("app").error(f"Exception while connecting MySQL: {e}")
+        logger.channel("app").exception(f"Exception while connecting MySQL: {e}")
         exit(1)
 
     logger.channel("app").info("API server started on 0.0.0.0:8082")
