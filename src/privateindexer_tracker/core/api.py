@@ -7,9 +7,9 @@ import bencode2
 from fastapi import HTTPException, Query, Request, Form, APIRouter, Depends, Header
 from fastapi.responses import Response, PlainTextResponse
 
+from privateindexer_tracker.core import logger
 from privateindexer_tracker.core import mysql, utils, redis
 from privateindexer_tracker.core.config import PEER_TIMEOUT, ANNOUNCE_INTERVAL, ANNOUNCE_JITTER_PERCENT
-from privateindexer_tracker.core.logger import log
 from privateindexer_tracker.core.utils import User
 
 router = APIRouter()
@@ -27,7 +27,7 @@ async def api_key_required(apikey_query: str | None = Query(None, alias="apikey"
 
     user = await utils.get_user_by_key(apikey)
     if not user:
-        log.debug(f"[USER] Invalid API key used")
+        logger.channel("user").debug(f"Invalid API key used")
         raise HTTPException(status_code=401, detail="Invalid API key")
     return user
 
@@ -51,7 +51,7 @@ async def announce(user: User = Depends(api_key_required), request: Request = No
     # ensure the announcement comes from a PrivateIndexer client
     user_agent = request.headers.get("User-Agent")
     if not user_agent or not user_agent.startswith("privateindexer-client"):
-        log.warning(f"[ANNOUNCE] User '{user_label}' announce request comes from non-PrivateIndexer client: {user_agent}")
+        logger.channel("announce").warning(f"User '{user_label}' announce request comes from non-PrivateIndexer client: {user_agent}")
         raise HTTPException(status_code=403, detail="Invalid PrivateIndexer client version")
 
     raw_qs = request.scope["query_string"]
@@ -62,14 +62,14 @@ async def announce(user: User = Depends(api_key_required), request: Request = No
 
     # ensure announcement request is correctly formatted
     if not raw_info_hash_bytes or not raw_peer_id_bytes:
-        log.warning(f"[ANNOUNCE] User '{user_label}' announce request is missing info_hash or peer_id")
+        logger.channel("announce").warning(f"User '{user_label}' announce request is missing info_hash or peer_id")
         raise HTTPException(status_code=400, detail="Missing info_hash or peer_id")
 
     if len(raw_info_hash_bytes) != 20:
-        log.warning(f"[ANNOUNCE] User '{user_label}' announce request has malformed info_hash ({len(raw_info_hash_bytes)})")
+        logger.channel("announce").warning(f"User '{user_label}' announce request has malformed info_hash ({len(raw_info_hash_bytes)})")
         raise HTTPException(status_code=400, detail="Malformed info_hash")
     if len(raw_peer_id_bytes) != 20:
-        log.warning(f"[ANNOUNCE] User '{user_label}' announce request has malformed peer_id ({len(raw_peer_id_bytes)})")
+        logger.channel("announce").warning(f"User '{user_label}' announce request has malformed peer_id ({len(raw_peer_id_bytes)})")
         raise HTTPException(status_code=400, detail="Malformed peer_id")
 
     info_hash_hex = raw_info_hash_bytes.hex().lower()
@@ -87,7 +87,7 @@ async def announce(user: User = Depends(api_key_required), request: Request = No
     # check if torrent exists in database
     torrent = await mysql.fetch_one("SELECT id, name FROM torrents WHERE hash_v1 = %s OR hash_v2_trunc = %s LIMIT 1", (info_hash_hex, info_hash_hex,))
     if not torrent:
-        log.warning(f"[ANNOUNCE] User '{user_label}' announced an unknown torrent with hash: {info_hash_hex}")
+        logger.channel("announce").warning(f"User '{user_label}' announced an unknown torrent with hash: {info_hash_hex}")
         raise HTTPException(status_code=404, detail="Torrent not found")
 
     torrent_id = torrent["id"]
@@ -120,7 +120,7 @@ async def announce(user: User = Depends(api_key_required), request: Request = No
 
         seeders = leechers = 0
 
-        log.debug(f"[ANNOUNCE] User '{user_label}' stopped announcing '{torrent['name']}' from IP '{announce_ip}'")
+        logger.channel("announce").debug(f"User '{user_label}' stopped announcing '{torrent['name']}' from IP '{announce_ip}'")
 
     else:
         # bump the last seen time for the torrent
@@ -174,7 +174,7 @@ async def announce(user: User = Depends(api_key_required), request: Request = No
             except OSError:
                 continue
 
-        log.debug(f"[ANNOUNCE] User '{user_label}' announced '{torrent['name']}' (S: {seeders} L: {leechers}) from IP '{announce_ip}'")
+        logger.channel("announce").debug(f"User '{user_label}' announced '{torrent['name']}' (S: {seeders} L: {leechers}) from IP '{announce_ip}'")
 
     # add a jitter to the next announcement suggestion that the client will use for its next announcement request
     jitter = random.randint(-ANNOUNCE_INTERVAL // ANNOUNCE_JITTER_PERCENT, ANNOUNCE_INTERVAL // ANNOUNCE_JITTER_PERCENT)

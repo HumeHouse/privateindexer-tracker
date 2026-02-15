@@ -3,40 +3,41 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, Response
 
+from privateindexer_tracker.core import logger
 from privateindexer_tracker.core import mysql, api, redis, utils, config
 from privateindexer_tracker.core.config import HIGH_LATECY_THRESHOLD, APP_VERSION
-from privateindexer_tracker.core.logger import log
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    log.info(f"[APP] Starting PrivateIndexer tracker v{APP_VERSION}")
+    logger.channel("app").info(f"Starting PrivateIndexer tracker v{APP_VERSION}")
 
     # test Redis connection
     try:
         await redis.get_connection()
-        log.info("[APP] Connected to Redis")
+        logger.channel("app").info("Connected to Redis")
     except Exception as e:
-        log.error(f"[APP] Exception while connecting Redis: {e}")
+        logger.channel("app").error(f"Exception while connecting Redis: {e}")
         exit(1)
 
     # test MySQL connection
     try:
         await mysql.connect_database()
-        log.info("[APP] Connected to MySQL")
+        logger.channel("app").info("Connected to MySQL")
     except Exception as e:
-        log.error(f"[APP] Exception while connecting MySQL: {e}")
+        logger.channel("app").error(f"Exception while connecting MySQL: {e}")
         exit(1)
 
-    log.info("[APP] API server started on 0.0.0.0:8082")
+    logger.channel("app").info("API server started on 0.0.0.0:8082")
 
     yield
 
-    log.info("[APP] Shutting down PrivateIndexer tracker")
+    logger.channel("app").info("Shutting down PrivateIndexer tracker")
 
     await mysql.disconnect_database()
 
     await redis.close_connection()
+
 
 # validate Python environment
 config.validate_environment()
@@ -77,9 +78,9 @@ async def track_stats(request: Request, call_next):
 
     # check the endpoint execution time for high latency
     if duration > HIGH_LATECY_THRESHOLD:
-        log.warning(f"[APP] High response time ({duration} ms) - [{request_method}] {request_string}")
+        logger.channel("app").warning(f"High response time ({duration} ms) - [{request_method}] {request_string}")
     else:
-        log.debug(f"[APP] Request ({duration} ms) - [{request_method}] {request_string}")
+        logger.channel("app").debug(f"Request ({duration} ms) - [{request_method}] {request_string}")
 
     # add the server-side content length to the counter
     if response.headers.get("content-length"):
