@@ -2,7 +2,7 @@ import os
 
 from privateindexer_tracker.core import logger
 
-APP_VERSION = "1.3.5"
+APP_VERSION = "1.3.6"
 
 ANNOUNCE_INTERVAL = int(os.getenv("ANNOUNCE_INTERVAL", 900))
 ANNOUNCE_JITTER_PERCENT = int(os.getenv("ANNOUNCE_JITTER_PERCENT", 15))
