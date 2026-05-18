@@ -3,6 +3,6 @@ uvicorn[standard]~=0.46.0
 python-multipart~=0.0.26
 aiomysql~=0.3.2
 redis[hiredis]~=7.4.0
-pydantic~=2.12.5
+pydantic~=2.13.4
 bencode2~=0.3.30
 cryptography~=46.0.7
