@@ -1,5 +1,5 @@
 # first image stage is the base python system
-FROM python:3.14.5-slim AS base
+FROM python:3.14.6-slim AS base
 LABEL Description="Tracker container for the HumeHouse PrivateIndexer swarm"
 
 
