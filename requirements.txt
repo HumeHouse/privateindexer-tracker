@@ -5,4 +5,4 @@ aiomysql~=0.3.2
 redis[hiredis]~=8.0.1
 pydantic~=2.13.4
 bencode2~=0.3.33
-cryptography~=49.0.0
+cryptography~=50.0.0
