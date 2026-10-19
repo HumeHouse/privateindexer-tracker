@@ -4,5 +4,5 @@ python-multipart~=0.0.32
 aiomysql~=0.3.2
 redis[hiredis]~=8.1.0
 pydantic~=2.13.5
-bencode2~=0.3.35
+bencode2~=0.3.38
 cryptography~=50.0.1
