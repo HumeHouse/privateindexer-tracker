@@ -1,4 +1,4 @@
-fastapi~=0.151.0
+fastapi~=0.161.1
 uvicorn[standard]~=0.54.0
 python-multipart~=0.0.32
 aiomysql~=0.3.2
